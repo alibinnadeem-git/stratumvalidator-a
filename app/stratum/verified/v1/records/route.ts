@@ -1,0 +1,4 @@
+import {NextRequest,NextResponse} from 'next/server';
+import {anchorServerless} from '@/lib/server/serverless-chain';
+export const runtime='nodejs';export const maxDuration=10;
+export async function POST(req:NextRequest){try{const expected=process.env.STRATUM_PUBLIC_API_KEY;if(!expected||req.headers.get('authorization')!==`Bearer ${expected}`)return NextResponse.json({error:'Unauthorized'},{status:401});const body=await req.json();return NextResponse.json(await anchorServerless(body))}catch(e:any){return NextResponse.json({error:e.message||'Anchor failed'},{status:400})}}
