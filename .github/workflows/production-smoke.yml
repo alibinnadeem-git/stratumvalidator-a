@@ -17,27 +17,32 @@ jobs:
         run: curl --fail --show-error --silent https://stratumvalidator-b.vercel.app/api/health
       - name: Test Validator C health
         run: curl --fail --show-error --silent https://stratumvalidator-c.vercel.app/api/health
-      - name: Test Validator A chain status
-        run: curl --fail --show-error --silent https://stratumvalidator-a.vercel.app/v1/status
+      - name: Test Validator A chain status and finalized height
+        run: |
+          curl --fail --show-error --silent https://stratumvalidator-a.vercel.app/v1/status | tee /tmp/status.json
+          python - <<'PY'
+          import json
+          x=json.load(open('/tmp/status.json'))
+          assert x.get('connected') is True, x
+          assert x.get('chainId') == 'stratum-devnet-1', x
+          assert int(x.get('height', 0)) >= 1, x
+          assert len(x.get('validators') or []) == 3, x
+          print('Chain height:', x.get('height'), 'validators:', len(x.get('validators') or []))
+          PY
       - name: Confirm vote endpoint rejects anonymous writes
         run: |
           code=$(curl --silent --output /tmp/vote.out --write-out '%{http_code}' -X POST -H 'content-type: application/json' -d '{}' https://stratumvalidator-a.vercel.app/internal/v1/vote)
           cat /tmp/vote.out
           test "$code" = "401" || test "$code" = "403"
-      - name: Finalize first live 2-of-3 UAT proof
+      - name: Verify permanent Block 1 UAT proof
         run: |
-          curl --fail --show-error --silent https://stratumvalidator-a.vercel.app/api/uat/first-proof | tee /tmp/uat.json
+          curl --fail --show-error --silent 'https://stratumvalidator-a.vercel.app/stratum/verified/v1/records/uat-20260824-first-proof?evidenceHash=2464336b26c0c0d51e4547dc0daaedbdeec01d931fb4f91e96a4f4704355f002' | tee /tmp/proof.json
           python - <<'PY'
           import json
-          x=json.load(open('/tmp/uat.json'))
-          if x.get('reused'):
-              assert x.get('valid') is True, x
-              print('Reused finalized UAT proof:', x.get('recordId'), 'block', x.get('blockHeight'))
-          else:
-              a=x.get('anchored') or {}
-              v=x.get('verified') or {}
-              assert v.get('valid') is True, x
-              assert len(a.get('validatorVotes') or []) >= 2, x
-              assert a.get('blockHeight'), x
-              print('Finalized UAT proof:', v.get('recordId'), 'block', a.get('blockHeight'), 'votes', a.get('validatorVotes'))
+          x=json.load(open('/tmp/proof.json'))
+          assert x.get('valid') is True, x
+          assert x.get('blockHeight') == 1, x
+          assert x.get('txHash') == '320b61bcb0dfd88ce027518acdb41b0e7ba5e5f50a8a97fe18dff77d9e0c7b2e', x
+          assert len(x.get('validatorVotes') or []) >= 2, x
+          print('Verified Block 1 proof:', x.get('txHash'), x.get('validatorVotes'))
           PY
