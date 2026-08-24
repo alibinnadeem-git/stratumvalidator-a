@@ -11,6 +11,17 @@ jobs:
         run: sleep 25
       - name: Test STRATUM Verified health
         run: curl --fail --show-error --silent https://stratum-verified.vercel.app/api/health
+      - name: Confirm STRATUM Verified sees live chain
+        run: |
+          curl --fail --show-error --silent https://stratum-verified.vercel.app/api/chain/status | tee /tmp/app-chain.json
+          python - <<'PY'
+          import json
+          x=json.load(open('/tmp/app-chain.json'))
+          assert x.get('connected') is True, x
+          assert x.get('chainId') == 'stratum-devnet-1', x
+          assert int(x.get('height', 0)) >= 1, x
+          print('App sees chain height:', x.get('height'))
+          PY
       - name: Test Validator A health
         run: curl --fail --show-error --silent https://stratumvalidator-a.vercel.app/api/health
       - name: Test Validator B health
