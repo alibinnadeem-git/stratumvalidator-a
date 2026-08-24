@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createHash } from 'crypto';
 import { anchorServerless, verifyServerless } from '@/lib/server/serverless-chain';
+import type { LedgerRecord } from '@/lib/ledger';
 
 export const runtime = 'nodejs';
 export const maxDuration = 10;
@@ -18,7 +19,7 @@ export async function GET() {
     return NextResponse.json({ reused: true, ...existing });
   }
 
-  const record = {
+  const record: LedgerRecord = {
     recordId: RECORD_ID,
     organizationId: 'stratum-electric-uat',
     projectId: 'uat-project-001',
