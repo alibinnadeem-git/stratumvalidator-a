@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Wait for Vercel aliases
-        run: sleep 20
+        run: sleep 25
       - name: Test STRATUM Verified health
         run: curl --fail --show-error --silent https://stratum-verified.vercel.app/api/health
       - name: Test Validator A health
@@ -24,3 +24,20 @@ jobs:
           code=$(curl --silent --output /tmp/vote.out --write-out '%{http_code}' -X POST -H 'content-type: application/json' -d '{}' https://stratumvalidator-a.vercel.app/internal/v1/vote)
           cat /tmp/vote.out
           test "$code" = "401" || test "$code" = "403"
+      - name: Finalize first live 2-of-3 UAT proof
+        run: |
+          curl --fail --show-error --silent https://stratumvalidator-a.vercel.app/api/uat/first-proof | tee /tmp/uat.json
+          python - <<'PY'
+          import json
+          x=json.load(open('/tmp/uat.json'))
+          if x.get('reused'):
+              assert x.get('valid') is True, x
+              print('Reused finalized UAT proof:', x.get('recordId'), 'block', x.get('blockHeight'))
+          else:
+              a=x.get('anchored') or {}
+              v=x.get('verified') or {}
+              assert v.get('valid') is True, x
+              assert len(a.get('validatorVotes') or []) >= 2, x
+              assert a.get('blockHeight'), x
+              print('Finalized UAT proof:', v.get('recordId'), 'block', a.get('blockHeight'), 'votes', a.get('validatorVotes'))
+          PY
