@@ -1,0 +1,26 @@
+name: STRATUM Production Smoke Test
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Vercel aliases
+        run: sleep 20
+      - name: Test STRATUM Verified health
+        run: curl --fail --show-error --silent https://stratum-verified.vercel.app/api/health
+      - name: Test Validator A health
+        run: curl --fail --show-error --silent https://stratumvalidator-a.vercel.app/api/health
+      - name: Test Validator B health
+        run: curl --fail --show-error --silent https://stratumvalidator-b.vercel.app/api/health
+      - name: Test Validator C health
+        run: curl --fail --show-error --silent https://stratumvalidator-c.vercel.app/api/health
+      - name: Test Validator A chain status
+        run: curl --fail --show-error --silent https://stratumvalidator-a.vercel.app/v1/status
+      - name: Confirm vote endpoint rejects anonymous writes
+        run: |
+          code=$(curl --silent --output /tmp/vote.out --write-out '%{http_code}' -X POST -H 'content-type: application/json' -d '{}' https://stratumvalidator-a.vercel.app/internal/v1/vote)
+          cat /tmp/vote.out
+          test "$code" = "401" || test "$code" = "403"
