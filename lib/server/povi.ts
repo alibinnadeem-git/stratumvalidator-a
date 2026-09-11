@@ -197,10 +197,11 @@ async function prepareProposal(record:LedgerRecord):Promise<{proposal:Proposal;t
  await ensurePoviTables();
  const txHash=transactionHash(record);
  const existing=await query<ChainTxRow>(`SELECT tx_hash,record_id,block_height,block_hash,finalized_at,status FROM sv_chain_transactions WHERE chain_id=$1 AND record_id=$2`,[CHAIN_ID(),record.recordId]);
- if(existing.rows[0]?.block_height&&existing.rows[0]?.finalized_at){
-  const row=existing.rows[0];
+ const row=existing.rows[0];
+ if(row?.block_height&&row.finalized_at){
   if(row.tx_hash!==txHash)throw new Error('Record ID already exists with different content');
-  return{txHash,proposal:null as never,existingFinalized:{network:CHAIN_ID(),txHash:row.tx_hash,blockHeight:Number(row.block_height),timestamp:row.finalized_at.toISOString(),blockHash:row.block_hash,protocolVersion:'LEGACY_OR_PREVIOUS',poviConformant:false}};
+  const finalizedAt=row.finalized_at;
+  return{txHash,proposal:null as never,existingFinalized:{network:CHAIN_ID(),txHash:row.tx_hash,blockHeight:Number(row.block_height),timestamp:finalizedAt.toISOString(),blockHash:row.block_hash,protocolVersion:'LEGACY_OR_PREVIOUS',poviConformant:false}};
  }
  const prepared=await tx(async c=>{
   await c.query(`SELECT pg_advisory_xact_lock(hashtext($1))`,[`${CHAIN_ID()}:povi-proposal`]);
